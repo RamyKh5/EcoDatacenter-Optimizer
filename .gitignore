@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Data (never commit real data)
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# Models
+models/*
+!models/.gitkeep
+
+# Secrets
+.env
+*.key
+secrets.yaml
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
