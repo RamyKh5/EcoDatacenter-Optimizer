@@ -1,10 +1,10 @@
-# Data Center Energy Efficiency
+# EcoDatacenter-Optimizer
 
 Reducing cooling energy consumption in data centers using machine learning.
 
 ## Team
 - Khelfaoui Ramy
-- Feriel
+- Gariti Feriel
 
 ## Project structure
 - `data/raw/` — original datasets (not tracked)
