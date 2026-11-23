@@ -1,0 +1,33 @@
+{
+    "model_name": "LightGBM Optimized with Optuna",
+    "target": "temp_target_60m",
+    "forecast_horizon_minutes": 60,
+    "features": [
+        "power_1",
+        "power_2",
+        "power_3",
+        "hour",
+        "minute",
+        "temp_lag_1m",
+        "temp_lag_5m",
+        "temp_lag_15m",
+        "temp_lag_60m",
+        "power_1_lag_1m",
+        "power_1_lag_5m",
+        "temp_rolling_mean_15m"
+    ],
+    "test_mae": 0.32048273363340496,
+    "baseline_test_mae": 0.3455422367638614,
+    "persistence_test_mae": 0.44803860660113365,
+    "best_hyperparameters": {
+        "n_estimators": 895,
+        "learning_rate": 0.013184289818470012,
+        "max_depth": 3,
+        "num_leaves": 15,
+        "min_child_samples": 21,
+        "subsample": 0.7007869370209362,
+        "colsample_bytree": 0.7738222655080337,
+        "reg_alpha": 4.542922936912776,
+        "reg_lambda": 2.3318634123576265
+    }
+}

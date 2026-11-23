@@ -18,6 +18,8 @@ data/processed/*
 # Models
 models/*
 !models/.gitkeep
+!models/lightgbm_60m_optuna.joblib
+!models/lightgbm_60m_optuna_metadata.json
 
 # Secrets
 .env
