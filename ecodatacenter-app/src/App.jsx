@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import './App.css'
 
 import {
@@ -13,794 +13,651 @@ import {
   Legend,
 } from 'recharts'
 
-// Backend URL
-const API_BASE_URL = (
-  import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
-).replace(/\/+$/, '')
+const API = 'http://127.0.0.1:8001'
 
-// Demo input containing the 13 final model features
-// These are sample values, not live sensor readings.
-const SAMPLE_INPUT = {
-  power_1: 1381.173333,
-  power_2: 651.878333,
-  power_3: 395.12,
-  hour: 13,
-  minute: 38,
-  regime: 1,
-  temp_lag_1m: 22.798357,
-  temp_lag_5m: 22.688240,
-  temp_lag_15m: 23.246738,
-  temp_lag_60m: 24.331759,
-  power_1_lag_1m: 1371.668333,
-  power_1_lag_5m: 1390.556667,
-  temp_rolling_mean_15m: 23.272660,
+const initialFeatures = {
+  power_1: 0,
+  power_2: 0,
+  power_3: 0,
+  hour: 23,
+  minute: 59,
+  temp_lag_1m: 0,
+  temp_lag_5m: 0,
+  temp_lag_15m: 0,
+  temp_lag_60m: 0,
+  power_1_lag_1m: 0,
+  power_1_lag_5m: 0,
+  temp_rolling_mean_15m: 0,
 }
 
-// Reusable temperature evaluation chart
-function TemperatureChart({
-  temperatureData,
-  chartLoading,
-  chartError,
-  title,
-}) {
+async function getJSON(url) {
+  const response = await fetch(`${API}${url}`)
+  if (!response.ok) {
+    throw new Error(`API error: ${response.status}`)
+  }
+  return response.json()
+}
+
+function TemperatureChart({ data, loading, error, title }) {
   return (
-    <section className="content-card chart-card">
+    <section className="panel chart-card">
       <div className="chart-heading">
         <div>
           <h2>{title}</h2>
-          <p className="subtitle">
-            Actual vs predicted temperature on the test dataset
+          <p className="panel-description">
+            Actual temperature compared with model predictions
           </p>
         </div>
-
         <span className="chart-unit">°C</span>
       </div>
 
-      {chartLoading && (
-        <p>Loading evaluation data...</p>
-      )}
+      {loading && <p className="chart-message">Loading chart data...</p>}
+      {error && <p className="error-message">{error}</p>}
 
-      {chartError && (
-        <p>{chartError}</p>
-      )}
-
-      {!chartLoading && !chartError && temperatureData.length === 0 && (
-        <p>No evaluation data available yet.</p>
-      )}
-
-      {!chartLoading && !chartError && temperatureData.length > 0 && (
+      {!loading && !error && data.length > 0 && (
         <div className="chart-container">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={temperatureData}>
-              <CartesianGrid
-                stroke="#2b3d49"
-                strokeDasharray="4 4"
-              />
-
+            <LineChart data={data}>
+              <CartesianGrid stroke="#26364c" strokeDasharray="3 3" />
               <XAxis
                 dataKey="time"
-                stroke="#91a4b0"
-                tick={{ fontSize: 12 }}
+                tick={{ fill: '#8593aa', fontSize: 10 }}
+                tickFormatter={(value) => value.slice(11, 16)}
               />
-
               <YAxis
-                domain={['dataMin - 1', 'dataMax + 1']}
-                stroke="#91a4b0"
-                tick={{ fontSize: 12 }}
+                domain={['auto', 'auto']}
+                tick={{ fill: '#8593aa', fontSize: 10 }}
               />
-
               <Tooltip
                 contentStyle={{
-                  background: '#14232e',
-                  border: '1px solid #354955',
+                  background: '#101a2c',
+                  border: '1px solid #26364c',
                   borderRadius: '8px',
-                  color: '#f1f5f9',
+                  color: '#e8edf5',
                 }}
               />
-
               <Legend />
-
               <Line
                 type="monotone"
-                dataKey="actual"
-                name="Actual Temperature"
-                stroke="#72e0b8"
-                strokeWidth={2.5}
+                dataKey="actual_temperature"
+                name="Actual"
+                stroke="#4de0bd"
                 dot={false}
+                strokeWidth={2}
               />
-
               <Line
                 type="monotone"
-                dataKey="predicted"
-                name="Predicted Temperature"
-                stroke="#8ba8ff"
-                strokeWidth={2.5}
-                strokeDasharray="5 5"
+                dataKey="predicted_temperature"
+                name="Predicted"
+                stroke="#e5a85b"
                 dot={false}
+                strokeWidth={2}
               />
             </LineChart>
           </ResponsiveContainer>
         </div>
       )}
 
+      {!loading && !error && data.length === 0 && (
+        <p className="chart-message">No chart data available.</p>
+      )}
+
       <p className="chart-note">
-        Evaluation uses the test dataset. This is not a live sensor feed.
-        Results will be available when the final model and test data are provided.
+        Historical test-dataset comparison. This chart does not represent
+        live sensor readings.
       </p>
     </section>
   )
 }
 
 function App() {
-  const [activePage, setActivePage] = useState('Dashboard')
+  const [page, setPage] = useState('Dashboard')
 
-  // Model information
-  const [modelStatus, setModelStatus] = useState('loading')
-
-  // Prediction state
-  const [prediction, setPrediction] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [predictionError, setPredictionError] = useState(null)
-
-  // Evaluation chart state
-  const [temperatureData, setTemperatureData] = useState([])
+  const [modelInfo, setModelInfo] = useState(null)
+  const [chartData, setChartData] = useState([])
   const [chartLoading, setChartLoading] = useState(true)
-  const [chartError, setChartError] = useState(null)
+  const [chartError, setChartError] = useState('')
+  const [backendError, setBackendError] = useState('')
 
-  // Get model information
+  const [features, setFeatures] = useState(initialFeatures)
+  const [prediction, setPrediction] = useState(null)
+  const [predictionLoading, setPredictionLoading] = useState(false)
+  const [predictionError, setPredictionError] = useState('')
+  const [energyData, setEnergyData] = useState(null)
+  const [energyError, setEnergyError] = useState('')
   useEffect(() => {
-    const controller = new AbortController()
-
-    const loadModelInfo = async () => {
+    async function loadDashboard() {
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/model-info`,
-          { signal: controller.signal }
-        )
-
-        if (!response.ok) {
-          throw new Error('Unable to load model information')
-        }
-
-        const data = await response.json()
-        setModelStatus(data.status || 'unavailable')
-      } catch (err) {
-        if (err.name !== 'AbortError') {
-          setModelStatus('unavailable')
-        }
+        const info = await getJSON('/model-info')
+        setModelInfo(info)
+        setBackendError('')
+      } catch (error) {
+        setBackendError(error.message)
       }
-    }
-
-    loadModelInfo()
-
-    return () => controller.abort()
-  }, [])
-
-  // Request a 60-minute temperature prediction
-  useEffect(() => {
-    const controller = new AbortController()
-
-    const loadPrediction = async () => {
-      setLoading(true)
-      setPredictionError(null)
 
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/predict`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Accept: 'application/json',
-            },
-            body: JSON.stringify(SAMPLE_INPUT),
-            signal: controller.signal,
-          }
-        )
-
-        const data = await response.json()
-
-        if (!response.ok) {
-          if (response.status === 503) {
-            throw new Error(
-              'The final 60-minute model is not available yet.'
-            )
-          }
-
-          throw new Error(
-            data.detail || `Prediction API error: ${response.status}`
-          )
-        }
-
-        setPrediction(data)
-      } catch (err) {
-        if (err.name !== 'AbortError') {
-          setPredictionError(err.message)
-          setPrediction(null)
-        }
+        setChartLoading(true)
+        const result = await getJSON('/actual-vs-predicted?limit=100')
+        setChartData(Array.isArray(result.data) ? result.data : [])
+        setChartError('')
+      } catch (error) {
+        setChartError(error.message)
       } finally {
-        if (!controller.signal.aborted) {
-          setLoading(false)
-        }
+        setChartLoading(false)
       }
-    }
-
-    loadPrediction()
-
-    return () => controller.abort()
-  }, [])
-
-  // Load actual vs predicted evaluation data
-  useEffect(() => {
-    const controller = new AbortController()
-
-    const loadChart = async () => {
-      setChartLoading(true)
-      setChartError(null)
-
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/actual-vs-predicted?limit=30`,
-          {
-            headers: {
-              Accept: 'application/json',
-            },
-            signal: controller.signal,
-          }
-        )
-
-        const result = await response.json()
-
-        if (!response.ok) {
-          if (response.status === 503) {
-            throw new Error(
-              'Evaluation is pending until the final model is available.'
-            )
-          }
-
-          throw new Error(
-            result.detail || `Chart API error: ${response.status}`
-          )
-        }
-
-        if (!Array.isArray(result.data)) {
-          throw new Error('Invalid evaluation data received from backend.')
-        }
-
-        const chartPoints = result.data.map((item) => ({
-          time: item.time
-            ? item.time.slice(11, 16)
-            : '',
-          actual: item.actual_temperature,
-          predicted: item.predicted_temperature,
-        }))
-
-        setTemperatureData(chartPoints)
-      } catch (err) {
-        if (err.name !== 'AbortError') {
-          setChartError(err.message)
-          setTemperatureData([])
-        }
-      } finally {
-        if (!controller.signal.aborted) {
-          setChartLoading(false)
-        }
-      }
+  const result = await getJSON('/energy-simulation')
+  setEnergyData(result)
+  setEnergyError('')
+} catch (error) {
+  setEnergyError(error.message)
+}
     }
 
-    loadChart()
-
-    return () => controller.abort()
+    loadDashboard()
   }, [])
 
-  const modelIsLoaded = modelStatus === 'loaded'
+  function handleFeatureChange(event) {
+    const { name, value } = event.target
+    setFeatures((previous) => ({
+      ...previous,
+      [name]: Number(value),
+    }))
+  }
+
+  async function handlePredict(event) {
+    event.preventDefault()
+    setPredictionLoading(true)
+    setPredictionError('')
+    setPrediction(null)
+
+    try {
+      const response = await fetch(`${API}/predict`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify(features),
+      })
+
+      if (!response.ok) {
+        const message = await response.text()
+        throw new Error(message || `Request failed: ${response.status}`)
+      }
+
+      const result = await response.json()
+      setPrediction(result)
+    } catch (error) {
+      setPredictionError(error.message)
+    } finally {
+      setPredictionLoading(false)
+    }
+  }
+
+  const modelLoaded = modelInfo?.status === 'loaded'
+  const metricsPending =
+    modelInfo?.metrics?.status === 'pending_final_validation'
+
+  const navItems = [
+    { name: 'Dashboard', icon: '▦' },
+    { name: 'Temperature Forecast', icon: '⌁' },
+    { name: 'Energy Optimization', icon: '⚡' },
+    { name: 'Model Performance', icon: '◫' },
+  ]
 
   return (
     <div className="app">
       <aside className="sidebar">
-        <h2>🌿 EcoDataCenter</h2>
+        <h2 className="brand">
+          Eco<span>Data</span>Center
+        </h2>
+
+        <p className="menu-title">MAIN MENU</p>
 
         <nav>
-          {[
-            'Dashboard',
-            'Temperature Forecast',
-            'Energy Optimization',
-            'Model Performance',
-          ].map((page) => (
+          {navItems.map((item) => (
             <button
-              key={page}
-              className={
-                activePage === page
-                  ? 'nav-link active'
-                  : 'nav-link'
-              }
-              onClick={() => setActivePage(page)}
+              key={item.name}
+              className={`nav-link ${page === item.name ? 'active' : ''}`}
+              onClick={() => setPage(item.name)}
             >
-              {page}
+              <span className="nav-icon">{item.icon}</span>
+              {item.name}
             </button>
           ))}
         </nav>
 
-        <p className="sidebar-footer">
-          Smart Cooling System
-        </p>
+        <div className="sidebar-bottom">
+          <span
+            className="status-dot"
+            style={{ background: backendError ? '#e38b83' : '#4de0bd' }}
+          />
+          {backendError ? 'Backend unavailable' : 'Energy Intelligence'}
+        </div>
       </aside>
 
       <main className="main-content">
+        <header className="topbar">
+          <div>
+            <p className="eyebrow">ECODATACENTER / ENERGY INTELLIGENCE</p>
+            <h1>{page}</h1>
+            <p className="subtitle">
+              Data-driven data center monitoring and optimization
+            </p>
+          </div>
+          <div className="user-avatar">EC</div>
+        </header>
 
-        {/* DASHBOARD */}
-        {activePage === 'Dashboard' && (
+        {backendError && (
+          <div className="notice error-notice">
+            <strong>Backend connection error</strong>
+            <p>{backendError}. Make sure the FastAPI server is running.</p>
+          </div>
+        )}
+
+        {page === 'Dashboard' && (
           <>
-            <header className="topbar">
+            <section className="welcome-card">
               <div>
-                <p className="eyebrow">OVERVIEW</p>
-                <h1>Data Center Dashboard</h1>
-                <p className="subtitle">
-                  Monitor temperature and energy efficiency.
+                <p className="welcome-label">WELCOME TO ECODATACENTER</p>
+                <h2>Smarter Energy. Better Efficiency.</h2>
+                <p>
+                  Monitor room temperature forecasting and explore
+                  data-driven energy optimization using machine learning.
                 </p>
               </div>
-
-              <span className="demo-badge">
-                ● Demo Mode
-              </span>
-            </header>
+              <div className="welcome-icon">⌁</div>
+            </section>
 
             <section className="stats-grid">
-              <article className="stat-card">
+              <div className="stat-card">
                 <p>Forecast Horizon</p>
                 <h2>60 min</h2>
-                <span>Temperature prediction</span>
-              </article>
+                <span className="stat-note">Notebook 08 model</span>
+              </div>
 
-              <article className="stat-card">
-                <p>Model MAE</p>
-                <h2>Pending</h2>
-                <span>Awaiting validated results</span>
-              </article>
-
-              <article className="stat-card">
-                <p>Baseline MAE</p>
-                <h2>Pending</h2>
-                <span>Awaiting final evaluation</span>
-              </article>
-
-              <article className="stat-card">
-                <p>Simulated Savings</p>
-                <h2>Pending</h2>
-                <span>Awaiting corrected simulation</span>
-              </article>
-            </section>
-
-            <section className="content-card">
-              <h2>Latest Model Prediction</h2>
-
-              {loading && (
-                <p>Connecting to prediction API...</p>
-              )}
-
-              {!loading && predictionError && (
-                <p>{predictionError}</p>
-              )}
-
-              {!loading && prediction && (
+              <div className="stat-card">
+                <p>Temperature Prediction</p>
                 <h2>
-                  {prediction.predicted_temperature} {prediction.unit}
+                  {prediction
+                    ? `${Number(prediction.predicted_temperature).toFixed(2)}°C`
+                    : '--'}
                 </h2>
-              )}
-
-              <p className="chart-note">
-                Forecast horizon: 60 minutes.
-                Input values are sample data, not live sensor readings.
-              </p>
-            </section>
-
-            <TemperatureChart
-              temperatureData={temperatureData}
-              chartLoading={chartLoading}
-              chartError={chartError}
-              title="Actual vs Predicted Temperature"
-            />
-
-            <section className="content-card">
-              <h2>About the Project</h2>
-
-              <p>
-                EcoDataCenter uses LightGBM to forecast data
-                center temperature 60 minutes ahead and explore
-                energy-efficient cooling strategies.
-              </p>
-
-              <div className="project-tags">
-                <span>LightGBM</span>
-                <span>Temperature Forecasting</span>
-                <span>Energy Optimization</span>
-              </div>
-            </section>
-
-            <section className="bottom-grid">
-              <article className="content-card energy-card">
-                <p className="eyebrow">
-                  ENERGY OPTIMIZATION
-                </p>
-
-                <h2>Smart Cooling Simulation</h2>
-
-                <p className="subtitle">
-                  Comparison between conventional and smart cooling.
-                </p>
-
-                <div className="energy-comparison">
-                  <div className="energy-item">
-                    <span>Conventional Cooling</span>
-                    <strong>Awaiting results</strong>
-                    <div className="energy-bar baseline-bar"></div>
-                  </div>
-
-                  <div className="energy-item">
-                    <span>Smart Cooling</span>
-                    <strong>Awaiting results</strong>
-                    <div className="energy-bar smart-bar"></div>
-                  </div>
-                </div>
-
-                <div className="savings-box">
-                  <span>Validated energy savings</span>
-                  <strong>Pending</strong>
-                </div>
-
-                <p className="chart-note">
-                  Simulation results are not real-world HVAC measurements.
-                </p>
-              </article>
-
-              <article className="content-card performance-card">
-                <p className="eyebrow">
-                  MODEL PERFORMANCE
-                </p>
-
-                <h2>LightGBM Metrics</h2>
-
-                <p className="subtitle">
-                  Final evaluation is not available yet.
-                </p>
-
-                <div className="metric-row">
-                  <span>60-minute MAE</span>
-                  <strong>Pending</strong>
-                </div>
-
-                <div className="metric-row">
-                  <span>60-minute RMSE</span>
-                  <strong>Pending</strong>
-                </div>
-
-                <div className="metric-row">
-                  <span>Baseline MAE</span>
-                  <strong>Pending</strong>
-                </div>
-
-                <p className="performance-note">
-                  Metrics will be updated after the final experiment.
-                </p>
-              </article>
-            </section>
-          </>
-        )}
-
-        {/* TEMPERATURE FORECAST */}
-        {activePage === 'Temperature Forecast' && (
-          <>
-            <header className="topbar">
-              <div>
-                <p className="eyebrow">
-                  MACHINE LEARNING
-                </p>
-
-                <h1>Temperature Forecast</h1>
-
-                <p className="subtitle">
-                  Predicting data center temperature 60 minutes ahead.
-                </p>
+                <span className="stat-note">Demo input prediction</span>
               </div>
 
-              <span className="demo-badge">
-                {loading
-                  ? '● Connecting...'
-                  : prediction
-                    ? '● Prediction Available'
-                    : '● Model Pending'}
-              </span>
-            </header>
-
-            <section className="stats-grid">
-              <article className="stat-card">
-                <p>Prediction Horizon</p>
-                <h2>60 min</h2>
-                <span>Forecast ahead</span>
-              </article>
-
-              <article className="stat-card">
-                <p>Model</p>
-                <h2>LightGBM</h2>
-                <span>Machine learning</span>
-              </article>
-
-              <article className="stat-card">
+              <div className="stat-card">
                 <p>Model Status</p>
-                <h2>{modelIsLoaded ? 'Loaded' : 'Pending'}</h2>
-                <span>Backend model status</span>
-              </article>
+                <h2>{modelLoaded ? 'Loaded' : 'Pending'}</h2>
+                <span className="stat-note">
+                  {modelInfo?.model || 'Waiting for backend'}
+                </span>
+              </div>
 
-              <article className="stat-card">
-                <p>Input Features</p>
-                <h2>13</h2>
-                <span>Final model features</span>
-              </article>
+              <div className="stat-card">
+                <p>Final Evaluation MAE</p>
+                <h2>{metricsPending ? 'Pending' : '--'}</h2>
+                <span className="stat-note">Final validation required</span>
+              </div>
             </section>
 
-            <section className="content-card">
-              <p className="eyebrow">
-                LIGHTGBM PREDICTION
-              </p>
+            <div className="bottom-grid">
+              <TemperatureChart
+                data={chartData}
+                loading={chartLoading}
+                error={chartError}
+                title="Actual vs Predicted Temperature"
+              />
 
-              <h2>Predicted Temperature</h2>
+              <section className="panel system-panel">
+                <h3>System Overview</h3>
+                <p>Current backend and model information</p>
 
-              {loading && (
-                <p>Loading prediction from backend...</p>
-              )}
+                <div className="system-row">
+                  <span>Backend API</span>
+                  <strong>{backendError ? 'Unavailable' : 'Connected'}</strong>
+                </div>
+                <div className="system-row">
+                  <span>Model</span>
+                  <strong>{modelInfo?.model || 'Loading...'}</strong>
+                </div>
+                
+                <div className="system-row">
+                  <span>Forecast target</span>
+                  <strong>60-minute average</strong>
+                </div>
+                <div className="system-row">
+                  <span>Sensor connection</span>
+                  <strong>Demo / user input</strong>
+                </div>
+              </section>
+            </div>
+          </>
+        )}
 
-              {!loading && predictionError && (
-                <p>{predictionError}</p>
-              )}
-
-              {!loading && prediction && (
-                <>
-                  <h1
-                    style={{
-                      fontSize: '42px',
-                      margin: '20px 0',
-                    }}
-                  >
-                    {prediction.predicted_temperature} {prediction.unit}
-                  </h1>
-
+        {page === 'Temperature Forecast' && (
+          <>
+            <section className="panel">
+              <div className="panel-heading">
+                <div>
+                  <h2>60-Minute Temperature Forecast</h2>
                   <p>
-                    Forecast horizon: {prediction.horizon}
+                    Enter the 12 input features required by the trained model.
                   </p>
-                </>
+                </div>
+                <span className="chart-unit">LightGBM</span>
+              </div>
+
+              <div className="notice">
+                <strong>Demo input</strong>
+                <p>
+                  These values are user-provided example features, not live
+                  sensor data.
+                </p>
+              </div>
+
+              <form className="feature-form" onSubmit={handlePredict}>
+                {Object.entries(features).map(([name, value]) => (
+                  <label className="feature-field" key={name}>
+                    <span>{name.replaceAll('_', ' ')}</span>
+                    <input
+                      type="number"
+                      step="any"
+                      name={name}
+                      value={value}
+                      onChange={handleFeatureChange}
+                      required
+                    />
+                  </label>
+                ))}
+
+                <button
+                  className="predict-button"
+                  type="submit"
+                  disabled={predictionLoading}
+                >
+                  {predictionLoading ? 'Predicting...' : 'Predict Temperature'}
+                </button>
+              </form>
+
+              {predictionError && (
+                <div className="notice error-notice">
+                  <strong>Prediction error</strong>
+                  <p>{predictionError}</p>
+                </div>
               )}
 
-              <p className="chart-note">
-                The current input is a sample payload containing
-                13 features, not live sensor data.
-              </p>
+              {prediction && (
+                <div className="prediction-result">
+                  <p>Predicted Average Room Temperature</p>
+                  <h2>
+                    {Number(prediction.predicted_temperature).toFixed(2)}
+                    {prediction.unit || '°C'}
+                  </h2>
+                  <span>
+                    Forecast horizon: {prediction.horizon || '60 minutes'}
+                  </span>
+                  <p className="chart-note">
+                    Demo or user-provided features. Not live sensor data.
+                  </p>
+                </div>
+              )}
             </section>
 
             <TemperatureChart
-              temperatureData={temperatureData}
-              chartLoading={chartLoading}
-              chartError={chartError}
-              title="Actual vs Predicted Temperature"
+              data={chartData}
+              loading={chartLoading}
+              error={chartError}
+              title="Model Evaluation: Actual vs Predicted"
             />
           </>
         )}
 
-        {/* ENERGY OPTIMIZATION */}
-        {activePage === 'Energy Optimization' && (
+        
+{page === 'Energy Optimization' && (
+  <>
+    <section className="panel energy-card">
+      <p className="eyebrow">ENERGY INTELLIGENCE</p>
+      <h2>Energy Optimization Simulation</h2>
+      <p className="panel-description">
+        Retrospective simulation based on the 60-minute forecasting model.
+      </p>
+
+      <div className="notice">
+        <strong>Illustrative simulation — not real HVAC measurements</strong>
+        <p>
+          These results are simulated estimates from Notebook 07.
+          They are not validated real-world energy savings.
+        </p>
+      </div>
+
+      {energyError && (
+        <p className="error-message">{energyError}</p>
+      )}
+
+      {!energyData && !energyError && (
+        <p className="chart-message">Loading simulation results...</p>
+      )}
+
+      {energyData && (
+        <>
+          <div className="stats-grid energy-stats">
+            <div className="stat-card">
+              <p>Linear Simulated Savings</p>
+              <h2>{energyData.linear_simulation.simulated_savings_percent}%</h2>
+              <span className="stat-note">Illustrative result</span>
+            </div>
+
+            <div className="stat-card">
+              <p>Quadratic Simulated Savings</p>
+              <h2>{energyData.quadratic_simulation.simulated_savings_percent}%</h2>
+              <span className="stat-note">Illustrative result</span>
+            </div>
+
+            <div className="stat-card">
+              <p>Evaluation Samples</p>
+              <h2>{energyData.evaluation_count}</h2>
+              <span className="stat-note">Retrospective evaluation</span>
+            </div>
+
+            <div className="stat-card">
+              <p>Forecast Horizon</p>
+              <h2>{energyData.horizon}</h2>
+              <span className="stat-note">Notebook 08 model</span>
+            </div>
+          </div>
+
+          <section className="panel">
+            <h3>Linear Simulation</h3>
+
+            <div className="metric-row">
+              <span>Baseline total</span>
+              <strong>
+                {energyData.linear_simulation.baseline_total.toLocaleString()}
+              </strong>
+            </div>
+
+            <div className="metric-row">
+              <span>Smart total</span>
+              <strong>
+                {energyData.linear_simulation.smart_total.toLocaleString()}
+              </strong>
+            </div>
+
+            <div className="metric-row">
+              <span>Simulated savings</span>
+              <strong>
+                {energyData.linear_simulation.simulated_savings_percent}%
+              </strong>
+            </div>
+          </section>
+
+          <section className="panel">
+            <h3>Quadratic Simulation</h3>
+
+            <div className="metric-row">
+              <span>Baseline total</span>
+              <strong>
+                {energyData.quadratic_simulation.baseline_total.toLocaleString()}
+              </strong>
+            </div>
+
+            <div className="metric-row">
+              <span>Smart total</span>
+              <strong>
+                {energyData.quadratic_simulation.smart_total.toLocaleString()}
+              </strong>
+            </div>
+
+            <div className="metric-row">
+              <span>Simulated savings</span>
+              <strong>
+                {energyData.quadratic_simulation.simulated_savings_percent}%
+              </strong>
+            </div>
+          </section>
+
+          <section className="panel">
+            <h3>Controller Behavior</h3>
+
+            <div className="metric-row">
+              <span>Relaxed target</span>
+              <strong>
+                {energyData.controller_behavior.relaxed_target}°C
+              </strong>
+            </div>
+
+            <div className="metric-row">
+              <span>Strict target</span>
+              <strong>
+                {energyData.controller_behavior.strict_target}°C
+              </strong>
+            </div>
+
+            <div className="metric-row">
+              <span>Relaxed operation</span>
+              <strong>
+                {energyData.controller_behavior.relaxed_percentage}%
+              </strong>
+            </div>
+
+            <div className="metric-row">
+              <span>Strict operation</span>
+              <strong>
+                {energyData.controller_behavior.strict_percentage}%
+              </strong>
+            </div>
+          </section>
+
+          <section className="panel">
+            <h3>Energy Components</h3>
+
+            <div className="metric-row">
+              <span>Fan share</span>
+              <strong>
+                {energyData.energy_components.baseline_fan_share_percent}%
+              </strong>
+            </div>
+
+            <div className="metric-row">
+              <span>Compressor share</span>
+              <strong>
+                {energyData.energy_components.baseline_compressor_share_percent}%
+              </strong>
+            </div>
+
+            <div className="metric-row">
+              <span>Compressor reduction</span>
+              <strong>
+                {energyData.energy_components.compressor_reduction_percent}%
+              </strong>
+            </div>
+          </section>
+
+          <p className="performance-note">
+            Source: {energyData.source}. Simulation type:{' '}
+            {energyData.simulation_type}. Unit: {energyData.unit}.
+            Savings status: {energyData.savings_status}.
+            These results are illustrative and not validated real HVAC savings.
+          </p>
+        </>
+      )}
+    </section>
+  </>
+)}
+
+
+        {page === 'Model Performance' && (
           <>
-            <header className="topbar">
-              <div>
-                <p className="eyebrow">
-                  ENERGY EFFICIENCY
-                </p>
+            <section className="panel performance-card">
+              <h2>Model Performance</h2>
+              <p className="panel-description">
+                Information returned by the backend model-info endpoint.
+              </p>
 
-                <h1>Energy Optimization</h1>
+             
 
-                <p className="subtitle">
-                  Explore the impact of smart cooling strategies.
-                </p>
+              <div className="metric-row">
+                <span>Dataset</span>
+                <strong>{modelInfo?.dataset || '--'}</strong>
               </div>
 
-              <span className="demo-badge">
-                ● Simulation
-              </span>
-            </header>
+              <div className="metric-row">
+                <span>Prediction target</span>
+                <strong>{modelInfo?.target || '--'}</strong>
+              </div>
 
-            <section className="stats-grid">
-              <article className="stat-card">
-                <p>Conventional Cooling</p>
-                <h2>Pending</h2>
-                <span>Simulation results</span>
-              </article>
+              <div className="metric-row">
+                <span>Forecast horizon</span>
+                <strong>{modelInfo?.horizon || '--'}</strong>
+              </div>
 
-              <article className="stat-card">
-                <p>Smart Cooling</p>
-                <h2>Pending</h2>
-                <span>Simulation results</span>
-              </article>
+              <div className="metric-row">
+                <span>Number of features</span>
+                <strong>{modelInfo?.features_count ?? '--'}</strong>
+              </div>
 
-              <article className="stat-card">
-                <p>Energy Saved</p>
-                <h2>Pending</h2>
-                <span>Awaiting validation</span>
-              </article>
+              <div className="metric-row">
+                <span>Model status</span>
+                <strong>{modelInfo?.status || 'Loading...'}</strong>
+              </div>
 
-              <article className="stat-card">
-                <p>Savings Rate</p>
-                <h2>Pending</h2>
-                <span>Awaiting corrected simulation</span>
-              </article>
+              <div className="metric-row">
+                <span>Final validation metrics</span>
+                <strong>
+                  {metricsPending ? 'Pending confirmation' : '--'}
+                </strong>
+              </div>
+
+              <div className="notice">
+                <strong>Evaluation status</strong>
+                <p>
+                  {modelInfo?.metrics?.message ||
+                    'Final evaluation metrics are not yet confirmed.'}
+                </p>
+              </div>
             </section>
 
-            <section className="content-card">
-              <p className="eyebrow">
-                COOLING COMPARISON
-              </p>
+            <TemperatureChart
+              data={chartData}
+              loading={chartLoading}
+              error={chartError}
+              title="Actual vs Predicted Temperature"
+            />
 
-              <h2>Conventional vs Smart Cooling</h2>
-
-              <p className="subtitle">
-                Simulation results will appear after validation.
-              </p>
-
-              <div className="energy-comparison">
-                <div className="energy-item">
-                  <span>Conventional Cooling</span>
-                  <strong>Awaiting results</strong>
-                  <div className="energy-bar baseline-bar"></div>
-                </div>
-
-                <div className="energy-item">
-                  <span>Smart Cooling</span>
-                  <strong>Awaiting results</strong>
-                  <div className="energy-bar smart-bar"></div>
-                </div>
-              </div>
-
-              <div className="savings-box">
-                <span>Estimated energy savings</span>
-                <strong>Pending</strong>
-              </div>
-
-              <p className="chart-note">
-                These results are based on simulation, not real-time
-                measurements or confirmed real-world HVAC savings.
-              </p>
-            </section>
-
-            <section
-              className="content-card"
-              style={{ marginTop: '25px' }}
-            >
-              <h2>How Does Smart Cooling Help?</h2>
-
+            <section className="panel about-panel">
+              <h3>Model Features</h3>
               <p>
-                The simulation compares a conventional cooling
-                strategy with a smarter strategy designed to reduce
-                energy consumption. Temperature forecasting can help
-                explore more efficient cooling decisions.
-              </p>
-
-              <div className="project-tags">
-                <span>Energy Efficiency</span>
-                <span>Smart Cooling</span>
-                <span>Temperature Forecasting</span>
-              </div>
-            </section>
-          </>
-        )}
-
-        {/* MODEL PERFORMANCE */}
-        {activePage === 'Model Performance' && (
-          <>
-            <header className="topbar">
-              <div>
-                <p className="eyebrow">
-                  MODEL EVALUATION
-                </p>
-
-                <h1>Model Performance</h1>
-
-                <p className="subtitle">
-                  Evaluate the accuracy of our temperature forecasting model.
-                </p>
-              </div>
-
-              <span className="demo-badge">
-                ● LightGBM
-              </span>
-            </header>
-
-            <section className="stats-grid">
-              <article className="stat-card">
-                <p>Prediction Horizon</p>
-                <h2>60 min</h2>
-                <span>Final model target</span>
-              </article>
-
-              <article className="stat-card">
-                <p>Model MAE</p>
-                <h2>Pending</h2>
-                <span>Awaiting final evaluation</span>
-              </article>
-
-              <article className="stat-card">
-                <p>Model RMSE</p>
-                <h2>Pending</h2>
-                <span>Awaiting final evaluation</span>
-              </article>
-
-              <article className="stat-card">
-                <p>Baseline MAE</p>
-                <h2>Pending</h2>
-                <span>Awaiting final evaluation</span>
-              </article>
-            </section>
-
-            <section className="content-card">
-              <p className="eyebrow">
-                ERROR COMPARISON
-              </p>
-
-              <h2>LightGBM vs Baseline</h2>
-
-              <p className="subtitle">
-                Final model comparison will be displayed here.
-              </p>
-
-              <div className="metric-row">
-                <span>LightGBM 60-minute MAE</span>
-                <strong>Pending</strong>
-              </div>
-
-              <div className="metric-row">
-                <span>LightGBM 60-minute RMSE</span>
-                <strong>Pending</strong>
-              </div>
-
-              <div className="metric-row">
-                <span>Persistence Baseline MAE</span>
-                <strong>Pending</strong>
-              </div>
-
-              <p className="chart-note">
-                Results will be updated after the temporal leakage
-                correction and final model evaluation.
-              </p>
-            </section>
-
-            <section
-              className="content-card"
-              style={{ marginTop: '25px' }}
-            >
-              <h2>Understanding the Metrics</h2>
-
-              <div className="metric-row">
-                <span>MAE (Mean Absolute Error)</span>
-                <strong>Average absolute prediction error</strong>
-              </div>
-
-              <div className="metric-row">
-                <span>RMSE (Root Mean Squared Error)</span>
-                <strong>Penalizes larger errors more</strong>
-              </div>
-
-              <div className="metric-row">
-                <span>Baseline</span>
-                <strong>Reference for comparison</strong>
-              </div>
-
-              <p className="chart-note">
-                Evaluation results are not available until the final
-                model and test dataset are provided.
+                {modelInfo?.features?.join(' · ') ||
+                  'Loading model features...'}
               </p>
             </section>
           </>
         )}
 
-        {/* FOOTER */}
         <footer>
-          EcoDataCenter · Machine Learning Demo
+          EcoDataCenter <span>•</span> Energy Intelligence
         </footer>
       </main>
     </div>
