@@ -1,6 +1,5 @@
-
-import { useEffect, useState } from 'react'
-import './App.css'
+import { useEffect, useState } from "react";
+import "./App.css";
 
 import {
   ResponsiveContainer,
@@ -11,9 +10,9 @@ import {
   CartesianGrid,
   Tooltip,
   Legend,
-} from 'recharts'
+} from "recharts";
 
-const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
+const API = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
 const initialFeatures = {
   power_1: 0,
@@ -28,14 +27,14 @@ const initialFeatures = {
   power_1_lag_1m: 0,
   power_1_lag_5m: 0,
   temp_rolling_mean_15m: 0,
-}
+};
 
 async function getJSON(url) {
-  const response = await fetch(`${API}${url}`)
+  const response = await fetch(`${API}${url}`);
   if (!response.ok) {
-    throw new Error(`API error: ${response.status}`)
+    throw new Error(`API error: ${response.status}`);
   }
-  return response.json()
+  return response.json();
 }
 
 function TemperatureChart({ data, loading, error, title }) {
@@ -61,19 +60,19 @@ function TemperatureChart({ data, loading, error, title }) {
               <CartesianGrid stroke="#26364c" strokeDasharray="3 3" />
               <XAxis
                 dataKey="time"
-                tick={{ fill: '#8593aa', fontSize: 10 }}
+                tick={{ fill: "#8593aa", fontSize: 10 }}
                 tickFormatter={(value) => value.slice(11, 16)}
               />
               <YAxis
-                domain={['auto', 'auto']}
-                tick={{ fill: '#8593aa', fontSize: 10 }}
+                domain={["auto", "auto"]}
+                tick={{ fill: "#8593aa", fontSize: 10 }}
               />
               <Tooltip
                 contentStyle={{
-                  background: '#101a2c',
-                  border: '1px solid #26364c',
-                  borderRadius: '8px',
-                  color: '#e8edf5',
+                  background: "#101a2c",
+                  border: "1px solid #26364c",
+                  borderRadius: "8px",
+                  color: "#e8edf5",
                 }}
               />
               <Legend />
@@ -103,108 +102,107 @@ function TemperatureChart({ data, loading, error, title }) {
       )}
 
       <p className="chart-note">
-        Historical test-dataset comparison. This chart does not represent
-        live sensor readings.
+        Historical test-dataset comparison. This chart does not represent live
+        sensor readings.
       </p>
     </section>
-  )
+  );
 }
 
 function App() {
-  const [page, setPage] = useState('Dashboard')
+  const [page, setPage] = useState("Dashboard");
 
-  const [modelInfo, setModelInfo] = useState(null)
-  const [chartData, setChartData] = useState([])
-  const [chartLoading, setChartLoading] = useState(true)
-  const [chartError, setChartError] = useState('')
-  const [backendError, setBackendError] = useState('')
+  const [modelInfo, setModelInfo] = useState(null);
+  const [chartData, setChartData] = useState([]);
+  const [chartLoading, setChartLoading] = useState(true);
+  const [chartError, setChartError] = useState("");
+  const [backendError, setBackendError] = useState("");
 
-  const [features, setFeatures] = useState(initialFeatures)
-  const [prediction, setPrediction] = useState(null)
-  const [predictionLoading, setPredictionLoading] = useState(false)
-  const [predictionError, setPredictionError] = useState('')
-  const [energyData, setEnergyData] = useState(null)
-  const [energyError, setEnergyError] = useState('')
+  const [features, setFeatures] = useState(initialFeatures);
+  const [prediction, setPrediction] = useState(null);
+  const [predictionLoading, setPredictionLoading] = useState(false);
+  const [predictionError, setPredictionError] = useState("");
+  const [energyData, setEnergyData] = useState(null);
+  const [energyError, setEnergyError] = useState("");
   useEffect(() => {
     async function loadDashboard() {
       try {
-        const info = await getJSON('/model-info')
-        setModelInfo(info)
-        setBackendError('')
+        const info = await getJSON("/model-info");
+        setModelInfo(info);
+        setBackendError("");
       } catch (error) {
-        setBackendError(error.message)
+        setBackendError(error.message);
       }
 
       try {
-        setChartLoading(true)
-        const result = await getJSON('/actual-vs-predicted?limit=100')
-        setChartData(Array.isArray(result.data) ? result.data : [])
-        setChartError('')
+        setChartLoading(true);
+        const result = await getJSON("/actual-vs-predicted?limit=100");
+        setChartData(Array.isArray(result.data) ? result.data : []);
+        setChartError("");
       } catch (error) {
-        setChartError(error.message)
+        setChartError(error.message);
       } finally {
-        setChartLoading(false)
+        setChartLoading(false);
       }
       try {
-  const result = await getJSON('/energy-simulation')
-  setEnergyData(result)
-  setEnergyError('')
-} catch (error) {
-  setEnergyError(error.message)
-}
+        const result = await getJSON("/energy-simulation");
+        setEnergyData(result);
+        setEnergyError("");
+      } catch (error) {
+        setEnergyError(error.message);
+      }
     }
 
-    loadDashboard()
-  }, [])
+    loadDashboard();
+  }, []);
 
   function handleFeatureChange(event) {
-    const { name, value } = event.target
+    const { name, value } = event.target;
     setFeatures((previous) => ({
       ...previous,
       [name]: Number(value),
-    }))
+    }));
   }
 
   async function handlePredict(event) {
-    event.preventDefault()
-    setPredictionLoading(true)
-    setPredictionError('')
-    setPrediction(null)
+    event.preventDefault();
+    setPredictionLoading(true);
+    setPredictionError("");
+    setPrediction(null);
 
     try {
       const response = await fetch(`${API}/predict`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
+          "Content-Type": "application/json",
+          Accept: "application/json",
         },
         body: JSON.stringify(features),
-      })
+      });
 
       if (!response.ok) {
-        const message = await response.text()
-        throw new Error(message || `Request failed: ${response.status}`)
+        const message = await response.text();
+        throw new Error(message || `Request failed: ${response.status}`);
       }
 
-      const result = await response.json()
-      setPrediction(result)
+      const result = await response.json();
+      setPrediction(result);
     } catch (error) {
-      setPredictionError(error.message)
+      setPredictionError(error.message);
     } finally {
-      setPredictionLoading(false)
+      setPredictionLoading(false);
     }
   }
 
-  const modelLoaded = modelInfo?.status === 'loaded'
-  const metricsPending =
-    modelInfo?.metrics?.status === 'pending_final_validation'
+  const modelLoaded = modelInfo?.status === "loaded";
+  const evaluationMetrics = modelInfo?.metrics;
 
   const navItems = [
-    { name: 'Dashboard', icon: '▦' },
-    { name: 'Temperature Forecast', icon: '⌁' },
-    { name: 'Energy Optimization', icon: '⚡' },
-    { name: 'Model Performance', icon: '◫' },
-  ]
+    { name: "Dashboard", icon: "▦" },
+    { name: "Temperature Forecast", icon: "⌁" },
+    { name: "Energy Optimization", icon: "⚡" },
+    { name: "Model Performance", icon: "◫" },
+  ];
 
   return (
     <div className="app">
@@ -219,7 +217,7 @@ function App() {
           {navItems.map((item) => (
             <button
               key={item.name}
-              className={`nav-link ${page === item.name ? 'active' : ''}`}
+              className={`nav-link ${page === item.name ? "active" : ""}`}
               onClick={() => setPage(item.name)}
             >
               <span className="nav-icon">{item.icon}</span>
@@ -231,9 +229,9 @@ function App() {
         <div className="sidebar-bottom">
           <span
             className="status-dot"
-            style={{ background: backendError ? '#e38b83' : '#4de0bd' }}
+            style={{ background: backendError ? "#e38b83" : "#4de0bd" }}
           />
-          {backendError ? 'Backend unavailable' : 'Energy Intelligence'}
+          {backendError ? "Backend unavailable" : "Energy Intelligence"}
         </div>
       </aside>
 
@@ -256,15 +254,15 @@ function App() {
           </div>
         )}
 
-        {page === 'Dashboard' && (
+        {page === "Dashboard" && (
           <>
             <section className="welcome-card">
               <div>
                 <p className="welcome-label">WELCOME TO ECODATACENTER</p>
                 <h2>Smarter Energy. Better Efficiency.</h2>
                 <p>
-                  Monitor room temperature forecasting and explore
-                  data-driven energy optimization using machine learning.
+                  Monitor room temperature forecasting and explore data-driven
+                  energy optimization using machine learning.
                 </p>
               </div>
               <div className="welcome-icon">⌁</div>
@@ -282,23 +280,31 @@ function App() {
                 <h2>
                   {prediction
                     ? `${Number(prediction.predicted_temperature).toFixed(2)}°C`
-                    : '--'}
+                    : "--"}
                 </h2>
                 <span className="stat-note">Demo input prediction</span>
               </div>
 
               <div className="stat-card">
                 <p>Model Status</p>
-                <h2>{modelLoaded ? 'Loaded' : 'Pending'}</h2>
+                <h2>{modelLoaded ? "Loaded" : "Pending"}</h2>
                 <span className="stat-note">
-                  {modelInfo?.model || 'Waiting for backend'}
+                  {modelInfo?.model || "Waiting for backend"}
                 </span>
               </div>
 
               <div className="stat-card">
                 <p>Final Evaluation MAE</p>
-                <h2>{metricsPending ? 'Pending' : '--'}</h2>
-                <span className="stat-note">Final validation required</span>
+                <h2>
+                  {evaluationMetrics?.mae != null
+                    ? `${evaluationMetrics.mae} ${evaluationMetrics.unit || "°C"}`
+                    : "--"}
+                </h2>
+                <span className="stat-note">
+                  {evaluationMetrics?.evaluation_count != null
+                    ? `${evaluationMetrics.evaluation_count} test samples`
+                    : "Metrics unavailable"}
+                </span>
               </div>
             </section>
 
@@ -316,13 +322,13 @@ function App() {
 
                 <div className="system-row">
                   <span>Backend API</span>
-                  <strong>{backendError ? 'Unavailable' : 'Connected'}</strong>
+                  <strong>{backendError ? "Unavailable" : "Connected"}</strong>
                 </div>
                 <div className="system-row">
                   <span>Model</span>
-                  <strong>{modelInfo?.model || 'Loading...'}</strong>
+                  <strong>{modelInfo?.model || "Loading..."}</strong>
                 </div>
-                
+
                 <div className="system-row">
                   <span>Forecast target</span>
                   <strong>60-minute average</strong>
@@ -336,7 +342,7 @@ function App() {
           </>
         )}
 
-        {page === 'Temperature Forecast' && (
+        {page === "Temperature Forecast" && (
           <>
             <section className="panel">
               <div className="panel-heading">
@@ -360,7 +366,7 @@ function App() {
               <form className="feature-form" onSubmit={handlePredict}>
                 {Object.entries(features).map(([name, value]) => (
                   <label className="feature-field" key={name}>
-                    <span>{name.replaceAll('_', ' ')}</span>
+                    <span>{name.replaceAll("_", " ")}</span>
                     <input
                       type="number"
                       step="any"
@@ -377,7 +383,7 @@ function App() {
                   type="submit"
                   disabled={predictionLoading}
                 >
-                  {predictionLoading ? 'Predicting...' : 'Predict Temperature'}
+                  {predictionLoading ? "Predicting..." : "Predict Temperature"}
                 </button>
               </form>
 
@@ -393,10 +399,10 @@ function App() {
                   <p>Predicted Average Room Temperature</p>
                   <h2>
                     {Number(prediction.predicted_temperature).toFixed(2)}
-                    {prediction.unit || '°C'}
+                    {prediction.unit || "°C"}
                   </h2>
                   <span>
-                    Forecast horizon: {prediction.horizon || '60 minutes'}
+                    Forecast horizon: {prediction.horizon || "60 minutes"}
                   </span>
                   <p className="chart-note">
                     Demo or user-provided features. Not live sensor data.
@@ -414,181 +420,208 @@ function App() {
           </>
         )}
 
-        
-{page === 'Energy Optimization' && (
-  <>
-    <section className="panel energy-card">
-      <p className="eyebrow">ENERGY INTELLIGENCE</p>
-      <h2>Energy Optimization Simulation</h2>
-      <p className="panel-description">
-        Retrospective simulation based on the 60-minute forecasting model.
-      </p>
+        {page === "Energy Optimization" && (
+          <>
+            <section className="panel energy-card">
+              <p className="eyebrow">ENERGY INTELLIGENCE</p>
+              <h2>Energy Optimization Simulation</h2>
+              <p className="panel-description">
+                Retrospective simulation based on the 60-minute forecasting
+                model.
+              </p>
 
-      <div className="notice">
-        <strong>Illustrative simulation — not real HVAC measurements</strong>
-        <p>
-          These results are simulated estimates from Notebook 07.
-          They are not validated real-world energy savings.
-        </p>
-      </div>
+              <div className="notice">
+                <strong>
+                  Illustrative simulation — not real HVAC measurements
+                </strong>
+                <p>
+                  These results are simulated estimates from Notebook 07. They
+                  are not validated real-world energy savings.
+                </p>
+              </div>
 
-      {energyError && (
-        <p className="error-message">{energyError}</p>
-      )}
+              {energyError && <p className="error-message">{energyError}</p>}
 
-      {!energyData && !energyError && (
-        <p className="chart-message">Loading simulation results...</p>
-      )}
+              {!energyData && !energyError && (
+                <p className="chart-message">Loading simulation results...</p>
+              )}
 
-      {energyData && (
-        <>
-          <div className="stats-grid energy-stats">
-            <div className="stat-card">
-              <p>Linear Simulated Savings</p>
-              <h2>{energyData.linear_simulation.simulated_savings_percent}%</h2>
-              <span className="stat-note">Illustrative result</span>
-            </div>
+              {energyData && (
+                <>
+                  <div className="stats-grid energy-stats">
+                    <div className="stat-card">
+                      <p>Linear Simulated Savings</p>
+                      <h2>
+                        {energyData.linear_simulation.simulated_savings_percent}
+                        %
+                      </h2>
+                      <span className="stat-note">Illustrative result</span>
+                    </div>
 
-            <div className="stat-card">
-              <p>Quadratic Simulated Savings</p>
-              <h2>{energyData.quadratic_simulation.simulated_savings_percent}%</h2>
-              <span className="stat-note">Illustrative result</span>
-            </div>
+                    <div className="stat-card">
+                      <p>Quadratic Simulated Savings</p>
+                      <h2>
+                        {
+                          energyData.quadratic_simulation
+                            .simulated_savings_percent
+                        }
+                        %
+                      </h2>
+                      <span className="stat-note">Illustrative result</span>
+                    </div>
 
-            <div className="stat-card">
-              <p>Evaluation Samples</p>
-              <h2>{energyData.evaluation_count}</h2>
-              <span className="stat-note">Retrospective evaluation</span>
-            </div>
+                    <div className="stat-card">
+                      <p>Evaluation Samples</p>
+                      <h2>{energyData.evaluation_count}</h2>
+                      <span className="stat-note">
+                        Retrospective evaluation
+                      </span>
+                    </div>
 
-            <div className="stat-card">
-              <p>Forecast Horizon</p>
-              <h2>{energyData.horizon}</h2>
-              <span className="stat-note">Notebook 08 model</span>
-            </div>
-          </div>
+                    <div className="stat-card">
+                      <p>Forecast Horizon</p>
+                      <h2>{energyData.horizon}</h2>
+                      <span className="stat-note">Notebook 08 model</span>
+                    </div>
+                  </div>
 
-          <section className="panel">
-            <h3>Linear Simulation</h3>
+                  <section className="panel">
+                    <h3>Linear Simulation</h3>
 
-            <div className="metric-row">
-              <span>Baseline total</span>
-              <strong>
-                {energyData.linear_simulation.baseline_total.toLocaleString()}
-              </strong>
-            </div>
+                    <div className="metric-row">
+                      <span>Baseline total</span>
+                      <strong>
+                        {energyData.linear_simulation.baseline_total.toLocaleString()}
+                      </strong>
+                    </div>
 
-            <div className="metric-row">
-              <span>Smart total</span>
-              <strong>
-                {energyData.linear_simulation.smart_total.toLocaleString()}
-              </strong>
-            </div>
+                    <div className="metric-row">
+                      <span>Smart total</span>
+                      <strong>
+                        {energyData.linear_simulation.smart_total.toLocaleString()}
+                      </strong>
+                    </div>
 
-            <div className="metric-row">
-              <span>Simulated savings</span>
-              <strong>
-                {energyData.linear_simulation.simulated_savings_percent}%
-              </strong>
-            </div>
-          </section>
+                    <div className="metric-row">
+                      <span>Simulated savings</span>
+                      <strong>
+                        {energyData.linear_simulation.simulated_savings_percent}
+                        %
+                      </strong>
+                    </div>
+                  </section>
 
-          <section className="panel">
-            <h3>Quadratic Simulation</h3>
+                  <section className="panel">
+                    <h3>Quadratic Simulation</h3>
 
-            <div className="metric-row">
-              <span>Baseline total</span>
-              <strong>
-                {energyData.quadratic_simulation.baseline_total.toLocaleString()}
-              </strong>
-            </div>
+                    <div className="metric-row">
+                      <span>Baseline total</span>
+                      <strong>
+                        {energyData.quadratic_simulation.baseline_total.toLocaleString()}
+                      </strong>
+                    </div>
 
-            <div className="metric-row">
-              <span>Smart total</span>
-              <strong>
-                {energyData.quadratic_simulation.smart_total.toLocaleString()}
-              </strong>
-            </div>
+                    <div className="metric-row">
+                      <span>Smart total</span>
+                      <strong>
+                        {energyData.quadratic_simulation.smart_total.toLocaleString()}
+                      </strong>
+                    </div>
 
-            <div className="metric-row">
-              <span>Simulated savings</span>
-              <strong>
-                {energyData.quadratic_simulation.simulated_savings_percent}%
-              </strong>
-            </div>
-          </section>
+                    <div className="metric-row">
+                      <span>Simulated savings</span>
+                      <strong>
+                        {
+                          energyData.quadratic_simulation
+                            .simulated_savings_percent
+                        }
+                        %
+                      </strong>
+                    </div>
+                  </section>
 
-          <section className="panel">
-            <h3>Controller Behavior</h3>
+                  <section className="panel">
+                    <h3>Controller Behavior</h3>
 
-            <div className="metric-row">
-              <span>Relaxed target</span>
-              <strong>
-                {energyData.controller_behavior.relaxed_target}°C
-              </strong>
-            </div>
+                    <div className="metric-row">
+                      <span>Relaxed target</span>
+                      <strong>
+                        {energyData.controller_behavior.relaxed_target}°C
+                      </strong>
+                    </div>
 
-            <div className="metric-row">
-              <span>Strict target</span>
-              <strong>
-                {energyData.controller_behavior.strict_target}°C
-              </strong>
-            </div>
+                    <div className="metric-row">
+                      <span>Strict target</span>
+                      <strong>
+                        {energyData.controller_behavior.strict_target}°C
+                      </strong>
+                    </div>
 
-            <div className="metric-row">
-              <span>Relaxed operation</span>
-              <strong>
-                {energyData.controller_behavior.relaxed_percentage}%
-              </strong>
-            </div>
+                    <div className="metric-row">
+                      <span>Relaxed operation</span>
+                      <strong>
+                        {energyData.controller_behavior.relaxed_percentage}%
+                      </strong>
+                    </div>
 
-            <div className="metric-row">
-              <span>Strict operation</span>
-              <strong>
-                {energyData.controller_behavior.strict_percentage}%
-              </strong>
-            </div>
-          </section>
+                    <div className="metric-row">
+                      <span>Strict operation</span>
+                      <strong>
+                        {energyData.controller_behavior.strict_percentage}%
+                      </strong>
+                    </div>
+                  </section>
 
-          <section className="panel">
-            <h3>Energy Components</h3>
+                  <section className="panel">
+                    <h3>Energy Components</h3>
 
-            <div className="metric-row">
-              <span>Fan share</span>
-              <strong>
-                {energyData.energy_components.baseline_fan_share_percent}%
-              </strong>
-            </div>
+                    <div className="metric-row">
+                      <span>Fan share</span>
+                      <strong>
+                        {
+                          energyData.energy_components
+                            .baseline_fan_share_percent
+                        }
+                        %
+                      </strong>
+                    </div>
 
-            <div className="metric-row">
-              <span>Compressor share</span>
-              <strong>
-                {energyData.energy_components.baseline_compressor_share_percent}%
-              </strong>
-            </div>
+                    <div className="metric-row">
+                      <span>Compressor share</span>
+                      <strong>
+                        {
+                          energyData.energy_components
+                            .baseline_compressor_share_percent
+                        }
+                        %
+                      </strong>
+                    </div>
 
-            <div className="metric-row">
-              <span>Compressor reduction</span>
-              <strong>
-                {energyData.energy_components.compressor_reduction_percent}%
-              </strong>
-            </div>
-          </section>
+                    <div className="metric-row">
+                      <span>Compressor reduction</span>
+                      <strong>
+                        {
+                          energyData.energy_components
+                            .compressor_reduction_percent
+                        }
+                        %
+                      </strong>
+                    </div>
+                  </section>
 
-          <p className="performance-note">
-            Source: {energyData.source}. Simulation type:{' '}
-            {energyData.simulation_type}. Unit: {energyData.unit}.
-            Savings status: {energyData.savings_status}.
-            These results are illustrative and not validated real HVAC savings.
-          </p>
-        </>
-      )}
-    </section>
-  </>
-)}
+                  <p className="performance-note">
+                    Source: {energyData.source}. Simulation type:{" "}
+                    {energyData.simulation_type}. Unit: {energyData.unit}.
+                    Savings status: {energyData.savings_status}. These results
+                    are illustrative and not validated real HVAC savings.
+                  </p>
+                </>
+              )}
+            </section>
+          </>
+        )}
 
-
-        {page === 'Model Performance' && (
+        {page === "Model Performance" && (
           <>
             <section className="panel performance-card">
               <h2>Model Performance</h2>
@@ -596,45 +629,55 @@ function App() {
                 Information returned by the backend model-info endpoint.
               </p>
 
-             
-
               <div className="metric-row">
                 <span>Dataset</span>
-                <strong>{modelInfo?.dataset || '--'}</strong>
+                <strong>{modelInfo?.dataset || "--"}</strong>
               </div>
 
               <div className="metric-row">
                 <span>Prediction target</span>
-                <strong>{modelInfo?.target || '--'}</strong>
+                <strong>{modelInfo?.target || "--"}</strong>
               </div>
 
               <div className="metric-row">
                 <span>Forecast horizon</span>
-                <strong>{modelInfo?.horizon || '--'}</strong>
+                <strong>{modelInfo?.horizon || "--"}</strong>
               </div>
 
               <div className="metric-row">
                 <span>Number of features</span>
-                <strong>{modelInfo?.features_count ?? '--'}</strong>
+                <strong>{modelInfo?.features_count ?? "--"}</strong>
               </div>
 
               <div className="metric-row">
                 <span>Model status</span>
-                <strong>{modelInfo?.status || 'Loading...'}</strong>
+                <strong>{modelInfo?.status || "Loading..."}</strong>
               </div>
 
               <div className="metric-row">
-                <span>Final validation metrics</span>
+                <span>Final Evaluation MAE</span>
                 <strong>
-                  {metricsPending ? 'Pending confirmation' : '--'}
+                  {evaluationMetrics?.mae != null
+                    ? `${evaluationMetrics.mae} ${evaluationMetrics.unit || "°C"}`
+                    : "--"}
                 </strong>
+              </div>
+
+              <div className="metric-row">
+                <span>Evaluation Samples</span>
+                <strong>{evaluationMetrics?.evaluation_count ?? "--"}</strong>
+              </div>
+
+              <div className="metric-row">
+                <span>Metrics Status</span>
+                <strong>{evaluationMetrics?.status || "--"}</strong>
               </div>
 
               <div className="notice">
                 <strong>Evaluation status</strong>
                 <p>
                   {modelInfo?.metrics?.message ||
-                    'Final evaluation metrics are not yet confirmed.'}
+                    "Final evaluation metrics are not yet confirmed."}
                 </p>
               </div>
             </section>
@@ -649,8 +692,8 @@ function App() {
             <section className="panel about-panel">
               <h3>Model Features</h3>
               <p>
-                {modelInfo?.features?.join(' · ') ||
-                  'Loading model features...'}
+                {modelInfo?.features?.join(" · ") ||
+                  "Loading model features..."}
               </p>
             </section>
           </>
@@ -661,7 +704,7 @@ function App() {
         </footer>
       </main>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

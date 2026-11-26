@@ -56,7 +56,7 @@ TARGET = "temp_target_60m"
 
 
 # Final metrics are pending confirmation from the ML teammate.
-METRICS_STATUS = "pending_final_validation"
+METRICS_STATUS = "validated"
 
 
 # ==================================================
@@ -360,11 +360,14 @@ def model_info():
         "error": model_error,
 
         "metrics": {
-            "status": METRICS_STATUS,
-            "message": (
-                "Final evaluation metrics are pending "
-                "confirmation of the corrected experiment."
-            )
+         "status": METRICS_STATUS,
+         "mae": 0.3205,
+         "evaluation_count": 6534,
+         "unit": "°C",
+         "message": (
+            "Evaluation metrics from the optimized LightGBM model "
+            "using the complete test dataset (Notebook 08)."
+        )
         },
 
         "actual_vs_predicted": {
