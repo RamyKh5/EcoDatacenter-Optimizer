@@ -2,13 +2,12 @@
 import pandas as pd
 from pathlib import Path
 
-# Original AAU dataset
-RAW_PATH = Path(
-    r"C:\Users\surfce\Desktop\EcoDatacenter-Practice\data\raw\AAU_temperature_and_power_use.csv"
-)
+# Raw dataset (relative to repository root)
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+RAW_PATH = PROJECT_ROOT / "data" / "raw" / "AAU_temperature_and_power_use.csv"
 
 # Save inside the current project
-OUTPUT_PATH = Path(__file__).resolve().parent.parent / "data" / "processed" / "test_data.csv"
+OUTPUT_PATH = PROJECT_ROOT / "data" / "processed" / "test_data.csv"
 
 print("Loading raw dataset...")
 df = pd.read_csv(RAW_PATH)
