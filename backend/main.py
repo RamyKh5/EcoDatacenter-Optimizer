@@ -359,13 +359,13 @@ def model_info():
         "status": model_status,
         "error": model_error,
 
-        "metrics": {
-            "status": METRICS_STATUS,
-            "message": (
-                "Final evaluation metrics are pending "
-                "confirmation of the corrected experiment."
-            )
-        },
+"metrics": {
+    "status": "validated",
+    "mae": 0.3205,
+    "evaluation_samples": 6534,
+    "message": "Confirmed Notebook 08 evaluation metrics."
+},
+       
 
         "actual_vs_predicted": {
             "available": TEST_DATA_PATH.exists(),

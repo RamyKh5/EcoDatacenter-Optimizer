@@ -32,9 +32,11 @@ const initialFeatures = {
 
 async function getJSON(url) {
   const response = await fetch(`${API}${url}`)
+
   if (!response.ok) {
     throw new Error(`API error: ${response.status}`)
   }
+
   return response.json()
 }
 
@@ -123,8 +125,10 @@ function App() {
   const [prediction, setPrediction] = useState(null)
   const [predictionLoading, setPredictionLoading] = useState(false)
   const [predictionError, setPredictionError] = useState('')
+
   const [energyData, setEnergyData] = useState(null)
   const [energyError, setEnergyError] = useState('')
+
   useEffect(() => {
     async function loadDashboard() {
       try {
@@ -137,7 +141,9 @@ function App() {
 
       try {
         setChartLoading(true)
+
         const result = await getJSON('/actual-vs-predicted?limit=100')
+
         setChartData(Array.isArray(result.data) ? result.data : [])
         setChartError('')
       } catch (error) {
@@ -145,13 +151,14 @@ function App() {
       } finally {
         setChartLoading(false)
       }
+
       try {
-  const result = await getJSON('/energy-simulation')
-  setEnergyData(result)
-  setEnergyError('')
-} catch (error) {
-  setEnergyError(error.message)
-}
+        const result = await getJSON('/energy-simulation')
+        setEnergyData(result)
+        setEnergyError('')
+      } catch (error) {
+        setEnergyError(error.message)
+      }
     }
 
     loadDashboard()
@@ -159,6 +166,7 @@ function App() {
 
   function handleFeatureChange(event) {
     const { name, value } = event.target
+
     setFeatures((previous) => ({
       ...previous,
       [name]: Number(value),
@@ -167,6 +175,7 @@ function App() {
 
   async function handlePredict(event) {
     event.preventDefault()
+
     setPredictionLoading(true)
     setPredictionError('')
     setPrediction(null)
@@ -196,8 +205,9 @@ function App() {
   }
 
   const modelLoaded = modelInfo?.status === 'loaded'
+
   const metricsPending =
-    modelInfo?.metrics?.status === 'pending_final_validation'
+    modelInfo?.metrics?.status !== 'validated'
 
   const navItems = [
     { name: 'Dashboard', icon: '▦' },
@@ -246,6 +256,7 @@ function App() {
               Data-driven data center monitoring and optimization
             </p>
           </div>
+
           <div className="user-avatar">EC</div>
         </header>
 
@@ -267,6 +278,7 @@ function App() {
                   data-driven energy optimization using machine learning.
                 </p>
               </div>
+
               <div className="welcome-icon">⌁</div>
             </section>
 
@@ -297,8 +309,14 @@ function App() {
 
               <div className="stat-card">
                 <p>Final Evaluation MAE</p>
-                <h2>{metricsPending ? 'Pending' : '--'}</h2>
-                <span className="stat-note">Final validation required</span>
+                <h2>
+                  {metricsPending
+                    ? 'Loading...'
+                    : modelInfo?.metrics?.mae != null
+                      ? `${Number(modelInfo.metrics.mae).toFixed(4)} °C`
+                      : '--'}
+                </h2>
+                <span className="stat-note">Notebook 08 evaluation</span>
               </div>
             </section>
 
@@ -318,15 +336,17 @@ function App() {
                   <span>Backend API</span>
                   <strong>{backendError ? 'Unavailable' : 'Connected'}</strong>
                 </div>
+
                 <div className="system-row">
                   <span>Model</span>
                   <strong>{modelInfo?.model || 'Loading...'}</strong>
                 </div>
-                
+
                 <div className="system-row">
                   <span>Forecast target</span>
                   <strong>60-minute average</strong>
                 </div>
+
                 <div className="system-row">
                   <span>Sensor connection</span>
                   <strong>Demo / user input</strong>
@@ -346,6 +366,7 @@ function App() {
                     Enter the 12 input features required by the trained model.
                   </p>
                 </div>
+
                 <span className="chart-unit">LightGBM</span>
               </div>
 
@@ -414,179 +435,181 @@ function App() {
           </>
         )}
 
-        
-{page === 'Energy Optimization' && (
-  <>
-    <section className="panel energy-card">
-      <p className="eyebrow">ENERGY INTELLIGENCE</p>
-      <h2>Energy Optimization Simulation</h2>
-      <p className="panel-description">
-        Retrospective simulation based on the 60-minute forecasting model.
-      </p>
+        {page === 'Energy Optimization' && (
+          <>
+            <section className="panel energy-card">
+              <p className="eyebrow">ENERGY INTELLIGENCE</p>
+              <h2>Energy Optimization Simulation</h2>
+              <p className="panel-description">
+                Retrospective simulation based on the 60-minute forecasting model.
+              </p>
 
-      <div className="notice">
-        <strong>Illustrative simulation — not real HVAC measurements</strong>
-        <p>
-          These results are simulated estimates from Notebook 07.
-          They are not validated real-world energy savings.
-        </p>
-      </div>
+              <div className="notice">
+                <strong>Illustrative simulation — not real HVAC measurements</strong>
+                <p>
+                  These results are simulated estimates from Notebook 07.
+                  They are not validated real-world energy savings.
+                </p>
+              </div>
 
-      {energyError && (
-        <p className="error-message">{energyError}</p>
-      )}
+              {energyError && (
+                <p className="error-message">{energyError}</p>
+              )}
 
-      {!energyData && !energyError && (
-        <p className="chart-message">Loading simulation results...</p>
-      )}
+              {!energyData && !energyError && (
+                <p className="chart-message">Loading simulation results...</p>
+              )}
 
-      {energyData && (
-        <>
-          <div className="stats-grid energy-stats">
-            <div className="stat-card">
-              <p>Linear Simulated Savings</p>
-              <h2>{energyData.linear_simulation.simulated_savings_percent}%</h2>
-              <span className="stat-note">Illustrative result</span>
-            </div>
+              {energyData && (
+                <>
+                  <div className="stats-grid energy-stats">
+                    <div className="stat-card">
+                      <p>Linear Simulated Savings</p>
+                      <h2>
+                        {energyData.linear_simulation.simulated_savings_percent}%
+                      </h2>
+                      <span className="stat-note">Illustrative result</span>
+                    </div>
 
-            <div className="stat-card">
-              <p>Quadratic Simulated Savings</p>
-              <h2>{energyData.quadratic_simulation.simulated_savings_percent}%</h2>
-              <span className="stat-note">Illustrative result</span>
-            </div>
+                    <div className="stat-card">
+                      <p>Quadratic Simulated Savings</p>
+                      <h2>
+                        {energyData.quadratic_simulation.simulated_savings_percent}%
+                      </h2>
+                      <span className="stat-note">Illustrative result</span>
+                    </div>
 
-            <div className="stat-card">
-              <p>Evaluation Samples</p>
-              <h2>{energyData.evaluation_count}</h2>
-              <span className="stat-note">Retrospective evaluation</span>
-            </div>
+                    <div className="stat-card">
+                      <p>Evaluation Samples</p>
+                      <h2>{Number(energyData.evaluation_count).toLocaleString('en-US')}</h2>
+                      <span className="stat-note">Retrospective evaluation</span>
+                    </div>
 
-            <div className="stat-card">
-              <p>Forecast Horizon</p>
-              <h2>{energyData.horizon}</h2>
-              <span className="stat-note">Notebook 08 model</span>
-            </div>
-          </div>
+                    <div className="stat-card">
+                      <p>Forecast Horizon</p>
+                      <h2>{energyData.horizon}</h2>
+                      <span className="stat-note">Notebook 08 model</span>
+                    </div>
+                  </div>
 
-          <section className="panel">
-            <h3>Linear Simulation</h3>
+                  <section className="panel">
+                    <h3>Linear Simulation</h3>
 
-            <div className="metric-row">
-              <span>Baseline total</span>
-              <strong>
-                {energyData.linear_simulation.baseline_total.toLocaleString()}
-              </strong>
-            </div>
+                    <div className="metric-row">
+                      <span>Baseline total</span>
+                      <strong>
+                        {energyData.linear_simulation.baseline_total.toLocaleString()}
+                      </strong>
+                    </div>
 
-            <div className="metric-row">
-              <span>Smart total</span>
-              <strong>
-                {energyData.linear_simulation.smart_total.toLocaleString()}
-              </strong>
-            </div>
+                    <div className="metric-row">
+                      <span>Smart total</span>
+                      <strong>
+                        {energyData.linear_simulation.smart_total.toLocaleString()}
+                      </strong>
+                    </div>
 
-            <div className="metric-row">
-              <span>Simulated savings</span>
-              <strong>
-                {energyData.linear_simulation.simulated_savings_percent}%
-              </strong>
-            </div>
-          </section>
+                    <div className="metric-row">
+                      <span>Simulated savings</span>
+                      <strong>
+                        {energyData.linear_simulation.simulated_savings_percent}%
+                      </strong>
+                    </div>
+                  </section>
 
-          <section className="panel">
-            <h3>Quadratic Simulation</h3>
+                  <section className="panel">
+                    <h3>Quadratic Simulation</h3>
 
-            <div className="metric-row">
-              <span>Baseline total</span>
-              <strong>
-                {energyData.quadratic_simulation.baseline_total.toLocaleString()}
-              </strong>
-            </div>
+                    <div className="metric-row">
+                      <span>Baseline total</span>
+                      <strong>
+                        {energyData.quadratic_simulation.baseline_total.toLocaleString()}
+                      </strong>
+                    </div>
 
-            <div className="metric-row">
-              <span>Smart total</span>
-              <strong>
-                {energyData.quadratic_simulation.smart_total.toLocaleString()}
-              </strong>
-            </div>
+                    <div className="metric-row">
+                      <span>Smart total</span>
+                      <strong>
+                        {energyData.quadratic_simulation.smart_total.toLocaleString()}
+                      </strong>
+                    </div>
 
-            <div className="metric-row">
-              <span>Simulated savings</span>
-              <strong>
-                {energyData.quadratic_simulation.simulated_savings_percent}%
-              </strong>
-            </div>
-          </section>
+                    <div className="metric-row">
+                      <span>Simulated savings</span>
+                      <strong>
+                        {energyData.quadratic_simulation.simulated_savings_percent}%
+                      </strong>
+                    </div>
+                  </section>
 
-          <section className="panel">
-            <h3>Controller Behavior</h3>
+                  <section className="panel">
+                    <h3>Controller Behavior</h3>
 
-            <div className="metric-row">
-              <span>Relaxed target</span>
-              <strong>
-                {energyData.controller_behavior.relaxed_target}°C
-              </strong>
-            </div>
+                    <div className="metric-row">
+                      <span>Relaxed target</span>
+                      <strong>
+                        {energyData.controller_behavior.relaxed_target}°C
+                      </strong>
+                    </div>
 
-            <div className="metric-row">
-              <span>Strict target</span>
-              <strong>
-                {energyData.controller_behavior.strict_target}°C
-              </strong>
-            </div>
+                    <div className="metric-row">
+                      <span>Strict target</span>
+                      <strong>
+                        {energyData.controller_behavior.strict_target}°C
+                      </strong>
+                    </div>
 
-            <div className="metric-row">
-              <span>Relaxed operation</span>
-              <strong>
-                {energyData.controller_behavior.relaxed_percentage}%
-              </strong>
-            </div>
+                    <div className="metric-row">
+                      <span>Relaxed operation</span>
+                      <strong>
+                        {energyData.controller_behavior.relaxed_percentage}%
+                      </strong>
+                    </div>
 
-            <div className="metric-row">
-              <span>Strict operation</span>
-              <strong>
-                {energyData.controller_behavior.strict_percentage}%
-              </strong>
-            </div>
-          </section>
+                    <div className="metric-row">
+                      <span>Strict operation</span>
+                      <strong>
+                        {energyData.controller_behavior.strict_percentage}%
+                      </strong>
+                    </div>
+                  </section>
 
-          <section className="panel">
-            <h3>Energy Components</h3>
+                  <section className="panel">
+                    <h3>Energy Components</h3>
 
-            <div className="metric-row">
-              <span>Fan share</span>
-              <strong>
-                {energyData.energy_components.baseline_fan_share_percent}%
-              </strong>
-            </div>
+                    <div className="metric-row">
+                      <span>Fan share</span>
+                      <strong>
+                        {energyData.energy_components.baseline_fan_share_percent}%
+                      </strong>
+                    </div>
 
-            <div className="metric-row">
-              <span>Compressor share</span>
-              <strong>
-                {energyData.energy_components.baseline_compressor_share_percent}%
-              </strong>
-            </div>
+                    <div className="metric-row">
+                      <span>Compressor share</span>
+                      <strong>
+                        {energyData.energy_components.baseline_compressor_share_percent}%
+                      </strong>
+                    </div>
 
-            <div className="metric-row">
-              <span>Compressor reduction</span>
-              <strong>
-                {energyData.energy_components.compressor_reduction_percent}%
-              </strong>
-            </div>
-          </section>
+                    <div className="metric-row">
+                      <span>Compressor reduction</span>
+                      <strong>
+                        {energyData.energy_components.compressor_reduction_percent}%
+                      </strong>
+                    </div>
+                  </section>
 
-          <p className="performance-note">
-            Source: {energyData.source}. Simulation type:{' '}
-            {energyData.simulation_type}. Unit: {energyData.unit}.
-            Savings status: {energyData.savings_status}.
-            These results are illustrative and not validated real HVAC savings.
-          </p>
-        </>
-      )}
-    </section>
-  </>
-)}
-
+                  <p className="performance-note">
+                    Source: {energyData.source}. Simulation type:{' '}
+                    {energyData.simulation_type}. Unit: {energyData.unit}.
+                    Savings status: {energyData.savings_status}.
+                    These results are illustrative and not validated real HVAC savings.
+                  </p>
+                </>
+              )}
+            </section>
+          </>
+        )}
 
         {page === 'Model Performance' && (
           <>
@@ -595,8 +618,6 @@ function App() {
               <p className="panel-description">
                 Information returned by the backend model-info endpoint.
               </p>
-
-             
 
               <div className="metric-row">
                 <span>Dataset</span>
@@ -624,9 +645,24 @@ function App() {
               </div>
 
               <div className="metric-row">
-                <span>Final validation metrics</span>
+                <span>Final Evaluation MAE</span>
                 <strong>
-                  {metricsPending ? 'Pending confirmation' : '--'}
+                  {metricsPending
+                    ? 'Loading...'
+                    : modelInfo?.metrics?.mae != null
+                      ? `${Number(modelInfo.metrics.mae).toFixed(4)} °C`
+                      : '--'}
+                </strong>
+              </div>
+
+              <div className="metric-row">
+                <span>Evaluation samples</span>
+                <strong>
+                  {modelInfo?.metrics?.evaluation_samples != null
+                    ? Number(
+                        modelInfo.metrics.evaluation_samples
+                      ).toLocaleString()
+                    : '--'}
                 </strong>
               </div>
 
@@ -634,7 +670,7 @@ function App() {
                 <strong>Evaluation status</strong>
                 <p>
                   {modelInfo?.metrics?.message ||
-                    'Final evaluation metrics are not yet confirmed.'}
+                    'Evaluation metrics are loading.'}
                 </p>
               </div>
             </section>
